@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Türkçe Wordle</title>
+
+<style>
+:root{
+  --cell-size: 60px;
+  --key-size: 42px;
+}
+
+@media (max-width: 600px){
+  :root{
+    --cell-size: 48px;
+    --key-size: 36px;
+  }
+}
+
+body{
+  margin:0;
+  background:#121213;
+  color:white;
+  font-family:Arial, sans-serif;
+  text-align:center;
+}
+
+h1{margin:15px 0}
+
+.board{
+  display:grid;
+  grid-template-columns:repeat(5,var(--cell-size));
+  gap:8px;
+  justify-content:center;
+  margin:15px auto;
+}
+
+.cell{
+  width:var(--cell-size);
+  height:var(--cell-size);
+  border:2px solid #3a3a3c;
+  font-size:calc(var(--cell-size) * 0.55);
+  font-weight:bold;
+  line-height:var(--cell-size);
+  text-transform:uppercase;
+}
+
+.correct{background:#538d4e;border-color:#538d4e}
+.present{background:#b59f3b;border-color:#b59f3b}
+.absent{background:#3a3a3c;border-color:#3a3a3c}
+
+.keyboard{max-width:100%; padding:0 5px}
+
+.key{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:var(--key-size);
+  height:var(--key-size);
+  margin:3px;
+  padding:0 6px;
+  background:#818384;
+  border-radius:6px;
+  font-weight:bold;
+  cursor:pointer;
+  user-select:none;
+}
+
+.key.correct{background:#538d4e}
+.key.present{background:#b59f3b}
+.key.absent{background:#3a3a3c}
+
+input, button{
+  padding:10px;
+  font-size:16px;
+  margin:5px;
+  max-width:90%;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Türkçe Wordle</h1>
+
+<div id="creator">
+  <p>5 harfli kelime gir → link üret</p>
+  <input id="wordInput" maxlength="5">
+  <button onclick="createLink()">Link Oluştur</button>
+  <p id="linkArea"></p>
+</div>
+
+<div id="game" style="display:none">
+  <div class="board" id="board"></div>
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<script>
+const keyboardLayout=[
+  "E R T Y U I O P Ğ Ü",
+  "A S D F G H J K L Ş İ",
+  "Z C V B N M Ö Ç",
+  "ENTER ⌫"
+];
+const alphabet="abcçdefgğhıijklmnoöprsştuüvyz";
+
+let secret="",row=0,col=0,guess="";
+
+function createLink(){
+  let w=document.getElementById("wordInput").value.toLowerCase();
+  if(w.length!==5){alert("Kelime 5 harfli olmalı");return;}
+  let code=btoa(unescape(encodeURIComponent(w)));
+  let link=location.origin+location.pathname+"?code="+code;
+  document.getElementById("linkArea").innerHTML=
+    `<a href="${link}" target="_blank">${link}</a>`;
+}
+
+const params=new URLSearchParams(location.search);
+if(params.has("code")){
+  secret=decodeURIComponent(escape(atob(params.get("code"))));
+  startGame();
+}
+
+function startGame(){
+  document.getElementById("creator").style.display="none";
+  document.getElementById("game").style.display="block";
+
+  let board=document.getElementById("board");
+  for(let i=0;i<30;i++){
+    let c=document.createElement("div");
+    c.className="cell";
+    board.appendChild(c);
+  }
+  createKeyboard();
+}
+
+function createKeyboard(){
+  let kb=document.getElementById("keyboard");
+  keyboardLayout.forEach(r=>{
+    let rowDiv=document.createElement("div");
+    r.split(" ").forEach(k=>{
+      let b=document.createElement("div");
+      b.className="key";
+      b.textContent=k;
+      b.onclick=()=>handleKey(k);
+      rowDiv.appendChild(b);
+    });
+    kb.appendChild(rowDiv);
+  });
+}
+
+function handleKey(k){
+  if(k==="ENTER") submit();
+  else if(k==="⌫") backspace();
+  else addLetter(k.toLowerCase());
+}
+
+function addLetter(l){
+  if(col<5){
+    document.querySelectorAll(".cell")[row*5+col].textContent=l;
+    guess+=l; col++;
+  }
+}
+function backspace(){
+  if(col>0){
+    col--; guess=guess.slice(0,-1);
+    document.querySelectorAll(".cell")[row*5+col].textContent="";
+  }
+}
+
+function submit(){
+  if(guess.length!==5) return;
+  let arr=secret.split("");
+  let cells=document.querySelectorAll(".cell");
+
+  for(let i=0;i<5;i++){
+    let c=cells[row*5+i];
+    if(guess[i]===secret[i]){
+      c.classList.add("correct");
+      updateKey(guess[i],"correct");
+      arr[i]=null;
+    }
+  }
+  for(let i=0;i<5;i++){
+    let c=cells[row*5+i];
+    if(c.classList.contains("correct")) continue;
+    if(arr.includes(guess[i])){
+      c.classList.add("present");
+      updateKey(guess[i],"present");
+      arr[arr.indexOf(guess[i])]=null;
+    } else {
+      c.classList.add("absent");
+      updateKey(guess[i],"absent");
+    }
+  }
+
+  if(guess===secret){alert("🎉 Tebrikler!");return;}
+  row++; col=0; guess="";
+  if(row===6) alert("😢 Kelime: "+secret.toUpperCase());
+}
+
+function updateKey(l,s){
+  document.querySelectorAll(".key").forEach(k=>{
+    if(k.textContent.toLowerCase()===l){
+      if(k.classList.contains("correct")) return;
+      k.className="key "+s;
+    }
+  });
+}
+
+document.addEventListener("keydown",e=>{
+  let k=e.key.toLowerCase();
+  if(k==="enter") submit();
+  else if(k==="backspace") backspace();
+  else if(alphabet.includes(k)) addLetter(k);
+});
+</script>
+
+</body>
+</html>
